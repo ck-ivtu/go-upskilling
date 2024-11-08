@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 )
+
+const filePath = "./su1/tmp/concurrent-write.txt"
 
 func CreateFile(fileName string) *os.File {
 	file, err := os.Create(fileName)
@@ -20,36 +21,34 @@ func CreateFile(fileName string) *os.File {
 	return file
 }
 
-func WriteWithOffset(file *os.File, index int, chunk string, mu *sync.Mutex) {
-	offset := int64(index * len(chunk))
-	mu.Lock()
-	defer mu.Unlock()
+func WriteWithOffset(file *os.File, offset int64, chunk []byte) error {
+	_, err := file.WriteAt(chunk, offset)
 
-	_, err := file.WriteAt([]byte(chunk+"\n"), offset)
-
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
 func ConcurrentWrite() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	file := CreateFile("./su1/tmp/concurrent-write.txt")
+	file := CreateFile(filePath)
 	defer file.Close()
 
 	tasks := make(chan Task)
 
 	done, errors := WorkerPool(ctx, 3, tasks)
 
-	var mu sync.Mutex
+	chunk := []byte("hello")
 
 	for i := 0; i < 3; i++ {
 		idx := i
 
 		tasks <- func() error {
-			WriteWithOffset(file, idx, "hello", &mu)
+			err := WriteWithOffset(file, int64(idx*len(chunk)), chunk)
+
+			if err != nil {
+				return err
+			}
 
 			return nil
 		}
@@ -57,12 +56,13 @@ func ConcurrentWrite() {
 
 	close(tasks)
 
-	for err := range errors {
+	select {
+	case err := <-errors:
 		if err != nil {
+			fmt.Printf(err.Error())
 			cancel()
-			break
 		}
+	case <-done:
+		fmt.Println("completed without errors")
 	}
-
-	<-done
 }

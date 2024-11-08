@@ -2,6 +2,7 @@ package su1
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 )
@@ -32,12 +33,13 @@ func DataRace() {
 
 	close(tasks)
 
-	for err := range errors {
+	select {
+	case err := <-errors:
 		if err != nil {
+			fmt.Printf(err.Error())
 			cancel()
-			break
 		}
+	case <-done:
+		fmt.Println("completed without errors")
 	}
-
-	<-done
 }

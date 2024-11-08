@@ -15,7 +15,7 @@ func ErrorsHandling() {
 
 	done, errors := WorkerPool(ctx, 3, tasks)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		idx := i
 
 		tasks <- func() error {
@@ -33,12 +33,13 @@ func ErrorsHandling() {
 
 	close(tasks)
 
-	for err := range errors {
+	select {
+	case err := <-errors:
 		if err != nil {
+			fmt.Printf(err.Error())
 			cancel()
-			break
 		}
+	case <-done:
+		fmt.Println("completed without errors")
 	}
-
-	<-done
 }

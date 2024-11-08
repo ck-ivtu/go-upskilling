@@ -12,7 +12,7 @@ func WorkerPool(ctx context.Context, maxWorkers int, tasks <-chan Task) (<-chan 
 	var wg sync.WaitGroup
 
 	done := make(chan struct{})
-	errors := make(chan error, maxWorkers)
+	errors := make(chan error, 1)
 
 	worker := func(id int) {
 		fmt.Printf("Starting instance %d\n", id)
@@ -37,10 +37,7 @@ func WorkerPool(ctx context.Context, maxWorkers int, tasks <-chan Task) (<-chan 
 				err := task()
 
 				if err != nil {
-					select {
-					case errors <- err:
-					default:
-					}
+					errors <- err
 				}
 			}
 		}
